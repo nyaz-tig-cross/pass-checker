@@ -227,6 +227,7 @@
     padding: 24px;
     text-align: center;
     margin-bottom: 28px;
+    transition: background .4s, border-color .4s;
   }
 
   .crack-label {
@@ -684,6 +685,8 @@
       strengthText.style.color = 'var(--muted)';
       crackTime.textContent = 'パスワードを入力してください';
       crackTime.style.color = 'var(--accent)';
+      crackTime.closest('.crack-box').style.background = 'var(--bg)';
+      crackTime.closest('.crack-box').style.borderColor = 'var(--border)';
       adviceBox.classList.add('hidden');
       ['chk-length','chk-length12','chk-upper','chk-lower','chk-num','chk-sym']
         .forEach(id => updateCheck(id, false));
@@ -716,6 +719,11 @@
     const secs = calcCrackTime(pw);
     crackTime.textContent = formatTime(secs);
     crackTime.style.color = STRENGTH_COLORS[score];
+    const crackBox = crackTime.closest('.crack-box');
+    crackBox.style.background = STRENGTH_COLORS[score].replace('var(', '').replace(')', '')
+      ? `color-mix(in srgb, ${STRENGTH_COLORS[score]} 12%, var(--bg))`
+      : 'var(--bg)';
+    crackBox.style.borderColor = `color-mix(in srgb, ${STRENGTH_COLORS[score]} 45%, transparent)`;
 
     // アドバイス
     let advice = '';

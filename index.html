@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>パスワード強度チェッカー｜情報Ⅰ 認証の学習</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --bg:       #0a0e1a;
+    --surface:  #111827;
+    --border:   #1e2d45;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+    --accent:   #38bdf8;
+    --green:    #22c55e;
+    --yellow:   #f59e0b;
+    --orange:   #f97316;
+    --red:      #ef4444;
+    --purple:   #a78bfa;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── 背景グリッド ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── スキャンライン ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,.15) 2px,
+      rgba(0,0,0,.15) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── ヘッダー ── */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .15em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 900;
+    letter-spacing: -.02em;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: .9rem;
+    font-weight: 300;
+  }
+
+  /* ── メインカード ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  /* ── 入力フィールド ── */
+  .input-label {
+    display: block;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .input-wrap {
+    position: relative;
+    margin-bottom: 32px;
+  }
+
+  #password-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 56px 18px 20px;
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    letter-spacing: .05em;
+    outline: none;
+    transition: border-color .25s, box-shadow .25s;
+  }
+
+  #password-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(56,189,248,.12);
+  }
+
+  .toggle-btn {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: color .2s;
+  }
+
+  .toggle-btn:hover { color: var(--accent); }
+
+  .toggle-btn svg { width: 20px; height: 20px; }
+
+  /* ── 強度バー ── */
+  .strength-section { margin-bottom: 28px; }
+
+  .strength-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+
+  .strength-label {
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  #strength-text {
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    font-family: 'Share Tech Mono', monospace;
+    transition: color .4s;
+  }
+
+  .bar-track {
+    height: 8px;
+    background: rgba(255,255,255,.06);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  #strength-bar {
+    height: 100%;
+    border-radius: 99px;
+    width: 0%;
+    transition: width .5s cubic-bezier(.4,0,.2,1), background .4s;
+  }
+
+  /* ── 解読時間 ── */
+  .crack-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .crack-label {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 10px;
+  }
+
+  #crack-time {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 900;
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--accent);
+    line-height: 1;
+    transition: color .4s;
+    word-break: break-word;
+  }
+
+  /* ── チェック項目 ── */
+  .checks-title {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 14px;
+  }
+
+  .checks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  @media (max-width: 480px) {
+    .checks-grid { grid-template-columns: 1fr; }
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: border-color .3s;
+  }
+
+  .check-item.pass { border-color: var(--green); }
+
+  .check-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: border-color .3s, background .3s;
+    font-size: 11px;
+  }
+
+  .check-item.pass .check-icon {
+    border-color: var(--green);
+    background: var(--green);
+  }
+
+  .check-item.pass .check-icon::after { content: '✓'; color: #000; font-weight: 900; }
+  .check-item:not(.pass) .check-icon::after { content: ''; }
+
+  .check-text {
+    font-size: .8rem;
+    color: var(--muted);
+    transition: color .3s;
+    line-height: 1.4;
+  }
+
+  .check-item.pass .check-text { color: var(--text); }
+
+  /* ── アドバイス ── */
+  .advice-section {
+    margin-top: 8px;
+  }
+
+  #advice-box {
+    background: rgba(56,189,248,.06);
+    border: 1px solid rgba(56,189,248,.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: .85rem;
+    color: var(--accent);
+    font-weight: 500;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity .3s;
+  }
+
+  #advice-box.hidden { opacity: 0; }
+
+  /* ── 教育セクション ── */
+  .edu-section {
+    display: grid;
+    gap: 20px;
+  }
+
+  .edu-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .edu-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+  }
+
+  .edu-card.tip-1::before { background: var(--accent); }
+  .edu-card.tip-2::before { background: var(--green); }
+  .edu-card.tip-3::before { background: var(--yellow); }
+  .edu-card.tip-4::before { background: var(--purple); }
+
+  .edu-number {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .tip-1 .edu-number { color: var(--accent); }
+  .tip-2 .edu-number { color: var(--green); }
+  .tip-3 .edu-number { color: var(--yellow); }
+  .tip-4 .edu-number { color: var(--purple); }
+
+  .edu-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .edu-card p {
+    font-size: .85rem;
+    color: var(--muted);
+    line-height: 1.75;
+    font-weight: 300;
+  }
+
+  .edu-card p strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ── セクションタイトル ── */
+  .section-title {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── フッター ── */
+  footer {
+    text-align: center;
+    padding-top: 40px;
+    font-size: .75rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* ── アニメーション ── */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  .blink {
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  /* スコアに応じた色変数 */
+  .score-0  { --bar-color: var(--red);    --bar-w: 8%;   --score-color: var(--red);    }
+  .score-1  { --bar-color: var(--red);    --bar-w: 20%;  --score-color: var(--red);    }
+  .score-2  { --bar-color: var(--orange); --bar-w: 40%;  --score-color: var(--orange); }
+  .score-3  { --bar-color: var(--yellow); --bar-w: 62%;  --score-color: var(--yellow); }
+  .score-4  { --bar-color: var(--green);  --bar-w: 82%;  --score-color: var(--green);  }
+  .score-5  { --bar-color: var(--accent); --bar-w: 100%; --score-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="badge">高校 情報Ⅰ ｜ 認証 単元</div>
+    <h1>パスワードの<span>安全性</span>チェッカー</h1>
+    <p class="subtitle">入力したパスワードがどれくらい安全か確認してみよう</p>
+  </header>
+
+  <!-- メインカード -->
+  <div class="card">
+    <label class="input-label" for="password-input">▶ パスワードを入力</label>
+    <div class="input-wrap">
+      <input
+        type="password"
+        id="password-input"
+        placeholder="パスワードを入力してください"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="toggle-btn" id="toggle-btn" type="button" aria-label="パスワードを表示">
+        <!-- eye open -->
+        <svg id="eye-open" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
+        </svg>
+        <!-- eye closed -->
+        <svg id="eye-closed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="display:none">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.477 10.477A3 3 0 0012 15a3 3 0 002.523-4.523M6.528 6.528A9.955 9.955 0 002.458 12C3.732 16.057 7.523 19 12 19c1.98 0 3.822-.6 5.348-1.628M9 4.34A9.955 9.955 0 0112 4c4.478 0 8.268 2.943 9.542 7a10.016 10.016 0 01-1.646 3.064"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 強度バー -->
+    <div class="strength-section">
+      <div class="strength-header">
+        <span class="strength-label">強度レベル</span>
+        <span id="strength-text" style="color:var(--muted)">—</span>
+      </div>
+      <div class="bar-track">
+        <div id="strength-bar"></div>
+      </div>
+    </div>
+
+    <!-- 解読時間 -->
+    <div class="crack-box">
+      <div class="crack-label">コンピューターによる解読にかかる推定時間</div>
+      <div id="crack-time">パスワードを入力してください</div>
+    </div>
+
+    <!-- チェックリスト -->
+    <div class="checks-title">チェック項目</div>
+    <div class="checks-grid">
+      <div class="check-item" id="chk-length">
+        <div class="check-icon"></div>
+        <span class="check-text">8文字以上</span>
+      </div>
+      <div class="check-item" id="chk-length12">
+        <div class="check-icon"></div>
+        <span class="check-text">12文字以上（推奨）</span>
+      </div>
+      <div class="check-item" id="chk-upper">
+        <div class="check-icon"></div>
+        <span class="check-text">大文字を含む（A–Z）</span>
+      </div>
+      <div class="check-item" id="chk-lower">
+        <div class="check-icon"></div>
+        <span class="check-text">小文字を含む（a–z）</span>
+      </div>
+      <div class="check-item" id="chk-num">
+        <div class="check-icon"></div>
+        <span class="check-text">数字を含む（0–9）</span>
+      </div>
+      <div class="check-item" id="chk-sym">
+        <div class="check-icon"></div>
+        <span class="check-text">記号を含む（!@#$ 等）</span>
+      </div>
+    </div>
+
+    <!-- アドバイス -->
+    <div class="advice-section" style="margin-top:20px;">
+      <div id="advice-box" class="hidden">
+        <span>💡</span>
+        <span id="advice-text"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 教育コンテンツ -->
+  <div class="section-title">パスワード作成のポイント</div>
+  <div class="edu-section">
+
+    <div class="edu-card tip-1">
+      <div class="edu-number">Tip 01</div>
+      <h3>🔤 大文字・小文字・数字・記号を組み合わせる</h3>
+      <p>
+        パスワードに使える文字の種類（文字集合）が多いほど、解読に必要な試行回数が爆発的に増加します。<br>
+        <strong>半角英小文字のみ（26種）</strong> で8文字のパスワードは 26⁸ ≈ 約2,000億通り。<br>
+        <strong>大文字・小文字・数字・記号（約95種）</strong> で8文字なら 95⁸ ≈ 約66兆通りに跳ね上がります。
+      </p>
+    </div>
+
+    <div class="edu-card tip-2">
+      <div class="edu-number">Tip 02</div>
+      <h3>📏 8〜12文字以上で作成する</h3>
+      <p>
+        文字数が増えると組み合わせ数は指数的に増大します。<strong>8文字以上</strong>が最低基準ですが、より安全にするには<strong>12文字以上</strong>が推奨されています。現代のコンピューターは毎秒数十億回の試行が可能なため、短いパスワードはあっという間に解読されてしまいます。
+      </p>
+    </div>
+
+    <div class="edu-card tip-3">
+      <div class="edu-number">Tip 03</div>
+      <h3>🚫 生年月日・電話番号・名前は使わない</h3>
+      <p>
+        「<strong>19900401</strong>」「<strong>090XXXX</strong>」「<strong>tanaka</strong>」のように<strong>本人情報から連想しやすい文字列</strong>は、SNSや公開情報を元にした辞書攻撃で簡単に破られます。家族の名前・ペット名・学校名なども同様に危険です。
+      </p>
+    </div>
+
+    <div class="edu-card tip-4">
+      <div class="edu-number">Tip 04</div>
+      <h3>🧠 自分だけが覚えやすい文字列にする</h3>
+      <p>
+        好きな文の頭文字を使う方法が有効です。例：「<strong>私は毎朝7時に学校へ行く！</strong>」→「<strong>Wmn7jGh!</strong>」。意味のない文字列に見えますが、自分には思い出しやすいパスワードになります。サービスごとに<strong>異なるパスワード</strong>を使い、パスワードマネージャーの活用もおすすめです。
+      </p>
+    </div>
+
+  </div>
+
+  <footer>
+    ※ 入力されたパスワードはサーバーに送信・保存されません。すべてブラウザ内で処理されます。<br>
+    高校情報Ⅰ「認証」単元 学習用ツール
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const input     = document.getElementById('password-input');
+  const toggleBtn = document.getElementById('toggle-btn');
+  const eyeOpen   = document.getElementById('eye-open');
+  const eyeClosed = document.getElementById('eye-closed');
+  const bar       = document.getElementById('strength-bar');
+  const strengthText = document.getElementById('strength-text');
+  const crackTime = document.getElementById('crack-time');
+  const adviceBox = document.getElementById('advice-box');
+  const adviceText= document.getElementById('advice-text');
+
+  // ── 表示切替 ──────────────────────────────
+  toggleBtn.addEventListener('click', () => {
+    const isPassword = input.type === 'password';
+    input.type = isPassword ? 'text' : 'password';
+    eyeOpen.style.display   = isPassword ? 'none'  : 'block';
+    eyeClosed.style.display = isPassword ? 'block' : 'none';
+  });
+
+  // ── 解読時間計算 ──────────────────────────────
+  function calcCrackTime(pw) {
+    if (!pw) return null;
+
+    let charset = 0;
+    if (/[a-z]/.test(pw)) charset += 26;
+    if (/[A-Z]/.test(pw)) charset += 26;
+    if (/[0-9]/.test(pw)) charset += 10;
+    if (/[^a-zA-Z0-9]/.test(pw)) charset += 32;
+    if (charset === 0) charset = 26;
+
+    const combinations = Math.pow(charset, pw.length);
+    // 毎秒10億回の試行と仮定（現代のGPUクラスタ）
+    const guessesPerSec = 1e9;
+    const seconds = combinations / guessesPerSec;
+
+    return seconds;
+  }
+
+  function formatTime(seconds) {
+    if (seconds === null) return 'パスワードを入力してください';
+    if (seconds < 1e-6) return '即座に解読されます（1マイクロ秒未満）';
+    if (seconds < 1)    return '1秒未満で解読されます';
+    if (seconds < 60)   return `約 ${Math.round(seconds)} 秒`;
+    if (seconds < 3600) return `約 ${Math.round(seconds/60)} 分`;
+    if (seconds < 86400) return `約 ${Math.round(seconds/3600)} 時間`;
+    if (seconds < 86400*30) return `約 ${Math.round(seconds/86400)} 日`;
+    if (seconds < 86400*365) return `約 ${Math.round(seconds/86400/30)} ヶ月`;
+    if (seconds < 86400*365*1000) return `約 ${Math.round(seconds/86400/365).toLocaleString()} 年`;
+    if (seconds < 86400*365*1e6)  return `約 ${(seconds/86400/365/1000).toFixed(1).toLocaleString()} 千年`;
+    if (seconds < 86400*365*1e9)  return `約 ${Math.round(seconds/86400/365/1e6).toLocaleString()} 百万年`;
+    return '宇宙の年齢を超える時間';
+  }
+
+  // ── スコア計算 ──────────────────────────────
+  function calcScore(pw) {
+    if (!pw) return -1;
+    let score = 0;
+    if (pw.length >= 8)  score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^a-zA-Z0-9]/.test(pw)) score++;
+    // 最大5に正規化
+    return Math.min(5, Math.floor(score * 5 / 6));
+  }
+
+  const STRENGTH_LABELS = ['非常に弱い', '弱い', 'やや弱い', '普通', '強い', '非常に強い'];
+  const STRENGTH_COLORS = ['var(--red)', 'var(--red)', 'var(--orange)', 'var(--yellow)', 'var(--green)', 'var(--accent)'];
+  const BAR_WIDTHS      = ['8%', '20%', '40%', '62%', '82%', '100%'];
+
+  const ADVICES = [
+    '文字数を増やしてみましょう（まず8文字以上を目指そう）。',
+    '大文字・小文字・数字・記号を組み合わせてみましょう。',
+    '12文字以上にするとさらに安全です。',
+    '記号（!@#$%など）を追加するとより強固になります。',
+    '大文字も加えてみましょう（例：Passwordの P）。',
+    '数字を追加するとさらに良くなります。',
+    'とても良いパスワードです！このまま使用できます。',
+    '完璧なパスワードです！非常に安全です。',
+  ];
+
+  // ── チェック項目の更新 ──────────────────────────────
+  function updateCheck(id, pass) {
+    const el = document.getElementById(id);
+    if (pass) el.classList.add('pass');
+    else el.classList.remove('pass');
+  }
+
+  // ── メイン更新 ──────────────────────────────
+  function update() {
+    const pw = input.value;
+
+    if (!pw) {
+      bar.style.width = '0%';
+      bar.style.background = 'transparent';
+      strengthText.textContent = '—';
+      strengthText.style.color = 'var(--muted)';
+      crackTime.textContent = 'パスワードを入力してください';
+      crackTime.style.color = 'var(--accent)';
+      adviceBox.classList.add('hidden');
+      ['chk-length','chk-length12','chk-upper','chk-lower','chk-num','chk-sym']
+        .forEach(id => updateCheck(id, false));
+      return;
+    }
+
+    // チェック
+    const hasLen8  = pw.length >= 8;
+    const hasLen12 = pw.length >= 12;
+    const hasUpper = /[A-Z]/.test(pw);
+    const hasLower = /[a-z]/.test(pw);
+    const hasNum   = /[0-9]/.test(pw);
+    const hasSym   = /[^a-zA-Z0-9]/.test(pw);
+
+    updateCheck('chk-length',   hasLen8);
+    updateCheck('chk-length12', hasLen12);
+    updateCheck('chk-upper',    hasUpper);
+    updateCheck('chk-lower',    hasLower);
+    updateCheck('chk-num',      hasNum);
+    updateCheck('chk-sym',      hasSym);
+
+    // スコア
+    const score = calcScore(pw);
+    bar.style.width = BAR_WIDTHS[score];
+    bar.style.background = STRENGTH_COLORS[score];
+    strengthText.textContent = STRENGTH_LABELS[score];
+    strengthText.style.color = STRENGTH_COLORS[score];
+
+    // 解読時間
+    const secs = calcCrackTime(pw);
+    crackTime.textContent = formatTime(secs);
+    crackTime.style.color = STRENGTH_COLORS[score];
+
+    // アドバイス
+    let advice = '';
+    if (score <= 1) {
+      if (!hasLen8)  advice = '文字数を増やしてみましょう（まず8文字以上を目指そう）。';
+      else if (!hasLower && !hasUpper) advice = '英字を追加してみましょう。';
+      else advice = '大文字・小文字・数字・記号を組み合わせてみましょう。';
+    } else if (score === 2) {
+      if (!hasNum && !hasSym) advice = '数字か記号（!@#$%など）を追加してみましょう。';
+      else if (!hasLen8) advice = '文字数を8文字以上にしましょう。';
+      else advice = '大文字か記号を追加するとさらに安全です。';
+    } else if (score === 3) {
+      if (!hasLen12) advice = '12文字以上にするとさらに安全になります。';
+      else if (!hasSym) advice = '記号（!@#$%など）を追加するとより強固になります。';
+      else advice = 'あと一歩！大文字・記号も活用してみましょう。';
+    } else if (score === 4) {
+      advice = 'もう少しで完璧です。文字数をさらに増やすか記号を追加しましょう。';
+    } else {
+      advice = '非常に強力なパスワードです！このまま活用しましょう。';
+    }
+
+    adviceText.textContent = advice;
+    adviceBox.classList.remove('hidden');
+  }
+
+  input.addEventListener('input', update);
+})();
+</script>
+</body>
+</html>
